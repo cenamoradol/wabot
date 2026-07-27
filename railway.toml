@@ -1,0 +1,27 @@
+[build]
+builder = "NIXPACKS"
+buildCommand = "npm ci && npm run build && npm run prisma:generate"
+
+[deploy]
+startCommand = "npx prisma migrate deploy && npm start"
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10
+healthcheckPath = "/health/live"
+healthcheckTimeout = 30
+
+[[services]]
+name = "botwa"
+sourceDir = "."
+protocol = "tcp"
+[services.variables]
+NODE_ENV = "production"
+HOST = "0.0.0.0"
+PORT = "3000"
+LOG_LEVEL = "info"
+APP_URL = "https://botwa-api-production.up.railway.app"
+WEB_ORIGIN = "https://botwa.vercel.app"
+META_GRAPH_API_VERSION = "v23.0"
+META_APP_ID = "972013382563184"
+SUPERADMIN_EMAIL = "demo@botwa.dev"
+SUPERADMIN_PASSWORD = "admin123"
+EMAIL_FROM = "Botwa <login@example.com>"
