@@ -1,0 +1,404 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ConversationStatus {
+  OPEN
+  ASSIGNED
+  RESOLVED
+}
+
+enum ConversationResolver {
+  AGENT
+  BOT
+}
+
+enum MessageDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum MessageAuthorType {
+  CONTACT
+  AGENT
+  BOT
+  SYSTEM
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  DOCUMENT
+  AUDIO
+  UNSUPPORTED
+}
+
+enum MessageStatus {
+  QUEUED
+  SENDING
+  SENT
+  DELIVERED
+  READ
+  FAILED
+}
+
+enum PhoneNumberStatus {
+  PENDING_VERIFICATION
+  VERIFYING
+  ACTIVE
+  FAILED
+}
+
+enum BotMatchType {
+  KEYWORD
+  REGEX
+  AI
+}
+
+enum BotResponseType {
+  TEXT
+  LLM
+}
+
+enum BotAttemptOutcome {
+  MATCHED
+  RESPONDED
+  ESCALATED
+  CANCELLED
+  FAILED
+}
+
+model User {
+  id                  String                   @id @default(cuid())
+  email               String                   @unique
+  name                String?
+  passwordHash        String?
+  passwordUpdatedAt   DateTime?
+  isStaff             Boolean                  @default(false)
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
+  memberships         BusinessMember[]
+  sessions            Session[]
+  magicLinks          MagicLink[]
+  passwordResets      PasswordReset[]
+  assignedConversations Conversation[]         @relation("AssignedUser")
+  authoredMessages    Message[]                 @relation("MessageAuthor")
+  reads               ConversationRead[]
+  assignmentActions   ConversationAssignment[] @relation("AssignmentActor")
+  assignmentsFrom     ConversationAssignment[] @relation("AssignmentFrom")
+  assignmentsTo       ConversationAssignment[] @relation("AssignmentTo")
+  auditEvents         AuditEvent[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  revokedAt DateTime?
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+}
+
+model MagicLink {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+model PasswordReset {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+model Business {
+  id            String                   @id @default(cuid())
+  name          String
+  createdAt     DateTime                 @default(now())
+  updatedAt     DateTime                 @updatedAt
+  members       BusinessMember[]
+  phoneNumber   PhoneNumber?
+  contacts      Contact[]
+  conversations Conversation[]
+  botRules      BotRule[]
+  roleTemplates RoleTemplate[]
+  llmConfig     LlmConfig?
+  llmUsage      LlmUsage[]
+  webhookEvents WebhookEvent[]
+  auditEvents   AuditEvent[]
+}
+
+model BusinessMember {
+  userId            String
+  businessId        String
+  roleTemplateId    String?
+  customPermissions Json?
+  createdAt         DateTime      @default(now())
+  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  business          Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  roleTemplate      RoleTemplate? @relation(fields: [roleTemplateId], references: [id], onDelete: SetNull)
+
+  @@id([userId, businessId])
+  @@index([businessId, roleTemplateId])
+}
+
+model RoleTemplate {
+  id          String           @id @default(cuid())
+  businessId  String?
+  name        String
+  isDefault   Boolean          @default(false)
+  permissions Json
+  business    Business?        @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  members     BusinessMember[]
+
+  @@unique([businessId, name])
+  @@index([isDefault, name])
+}
+
+model PhoneNumber {
+  id                        String            @id @default(cuid())
+  businessId                String            @unique
+  phoneNumberId             String            @unique
+  displayPhone              String
+  displayName               String
+  status                    PhoneNumberStatus @default(PENDING_VERIFICATION)
+  displayNameStatus         String            @default("PENDING")
+  qualityRating             String            @default("UNKNOWN")
+  verifiedAt                DateTime?
+  lastError                 String?
+  wabaId                    String?
+  userAccessToken           String?
+  userAccessTokenExpiresAt  DateTime?
+  createdAt                 DateTime          @default(now())
+  updatedAt                 DateTime          @updatedAt
+  business                  Business          @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  webhookEvents             WebhookEvent[]
+}
+
+model Contact {
+  id            String         @id @default(cuid())
+  businessId    String
+  waId          String
+  name          String?
+  profilePicUrl String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  business      Business       @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  conversations Conversation[]
+
+  @@unique([id, businessId])
+  @@unique([businessId, waId])
+}
+
+model Conversation {
+  id              String                   @id @default(cuid())
+  businessId      String
+  contactId       String
+  assignedUserId  String?
+  status          ConversationStatus       @default(OPEN)
+  resolver        ConversationResolver?
+  botHandled      Boolean                  @default(false)
+  openedAt        DateTime                 @default(now())
+  assignedAt      DateTime?
+  firstResponseAt DateTime?
+  resolvedAt      DateTime?
+  lastMessageAt   DateTime                 @default(now())
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+  business        Business                 @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  contact         Contact                  @relation(fields: [contactId, businessId], references: [id, businessId], onDelete: Restrict)
+  assignedUser    User?                    @relation("AssignedUser", fields: [assignedUserId], references: [id], onDelete: SetNull)
+  messages        Message[]
+  assignments     ConversationAssignment[]
+  reads           ConversationRead[]
+  botAttempts     BotAttempt[]
+  llmUsage        LlmUsage[]
+
+  @@index([businessId, lastMessageAt(sort: Desc)])
+  @@index([businessId, status])
+  @@index([assignedUserId, status])
+}
+
+model ConversationAssignment {
+  id             String        @id @default(cuid())
+  conversationId String
+  fromUserId     String?
+  toUserId       String?
+  actorUserId    String?
+  reason         String
+  at             DateTime      @default(now())
+  conversation   Conversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  fromUser       User?         @relation("AssignmentFrom", fields: [fromUserId], references: [id], onDelete: SetNull)
+  toUser         User?         @relation("AssignmentTo", fields: [toUserId], references: [id], onDelete: SetNull)
+  actorUser      User?         @relation("AssignmentActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([conversationId, at])
+}
+
+model ConversationRead {
+  conversationId  String
+  userId          String
+  lastReadMessageId String?
+  readAt          DateTime     @default(now())
+  conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lastReadMessage Message?      @relation("LastReadMessage", fields: [lastReadMessageId], references: [id], onDelete: SetNull)
+
+  @@id([conversationId, userId])
+}
+
+model Message {
+  id             String            @id @default(cuid())
+  conversationId String
+  clientMsgId    String?           @unique
+  waMessageId    String?           @unique
+  direction      MessageDirection
+  authorType     MessageAuthorType
+  authorUserId   String?
+  type           MessageType
+  body           String?
+  mediaLocalKey  String?
+  providerMediaId String?
+  mediaMimeType  String?
+  mediaFileName  String?
+  mediaByteSize  Int?
+  mediaError     String?
+  status         MessageStatus     @default(QUEUED)
+  timestamp      DateTime          @default(now())
+  providerTimestamp DateTime?
+  rawPayload     Json
+  transportError Json?
+  conversation   Conversation      @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  authorUser     User?             @relation("MessageAuthor", fields: [authorUserId], references: [id], onDelete: SetNull)
+  readCursors    ConversationRead[] @relation("LastReadMessage")
+  botAttempts    BotAttempt[]       @relation("InboundBotMessage")
+
+  @@index([conversationId, timestamp, id])
+}
+
+model BotRule {
+  id                    String          @id @default(cuid())
+  businessId            String
+  name                  String
+  matchType             BotMatchType
+  pattern               String?
+  priority              Int             @default(100)
+  enabled               Boolean         @default(true)
+  responseType          BotResponseType
+  response              String?
+  systemPrompt          String?
+  temperature           Float?
+  maxTokens             Int?
+  escalateAfterAttempts Int?
+  business              Business        @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  attempts              BotAttempt[]
+  llmUsage              LlmUsage[]
+
+  @@index([businessId, enabled, priority, id])
+}
+
+model BotAttempt {
+  id               String            @id @default(cuid())
+  conversationId   String
+  inboundMessageId String
+  botRuleId        String?
+  attemptNumber    Int
+  outcome          BotAttemptOutcome
+  escalationReason String?
+  error            String?
+  createdAt        DateTime          @default(now())
+  completedAt      DateTime?
+  conversation     Conversation      @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  inboundMessage   Message           @relation("InboundBotMessage", fields: [inboundMessageId], references: [id], onDelete: Cascade)
+  botRule          BotRule?          @relation(fields: [botRuleId], references: [id], onDelete: SetNull)
+
+  @@unique([inboundMessageId, botRuleId])
+  @@index([conversationId, createdAt])
+}
+
+model LlmConfig {
+  businessId                    String   @id
+  provider                      String
+  model                         String
+  apiKeyCiphertext              Bytes?
+  apiBase                       String?
+  temperature                   Float    @default(0.7)
+  maxTokens                     Int      @default(500)
+  costPerMillionPromptTokens    Decimal  @db.Decimal(18, 8)
+  costPerMillionCompletionTokens Decimal @db.Decimal(18, 8)
+  monthlyCapUsd                 Decimal  @default(10) @db.Decimal(18, 8)
+  business                      Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+}
+
+model LlmUsage {
+  id               String        @id @default(cuid())
+  businessId       String
+  conversationId   String?
+  botRuleId        String?
+  provider         String
+  model            String
+  promptTokens     Int
+  completionTokens Int
+  costUsd          Decimal       @db.Decimal(18, 8)
+  at               DateTime      @default(now())
+  business         Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  conversation     Conversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  botRule          BotRule?      @relation(fields: [botRuleId], references: [id], onDelete: SetNull)
+
+  @@index([businessId, at])
+  @@index([botRuleId, at])
+}
+
+model WebhookEvent {
+  id                  String      @id @default(cuid())
+  fingerprint         String      @unique
+  phoneNumberId       String
+  type                String
+  payload             Json
+  receivedAt          DateTime    @default(now())
+  processingStartedAt DateTime?
+  processedAt         DateTime?
+  attemptCount        Int         @default(0)
+  lastError           String?
+  nextAttemptAt       DateTime?
+  phoneNumber         PhoneNumber @relation(fields: [phoneNumberId], references: [phoneNumberId], onDelete: Cascade)
+  business            Business    @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  businessId          String
+
+  @@index([processedAt, nextAttemptAt])
+  @@index([phoneNumberId, receivedAt(sort: Desc)])
+}
+
+model AuditEvent {
+  id         String    @id @default(cuid())
+  businessId String?
+  userId     String?
+  type       String
+  payload    Json
+  at         DateTime  @default(now())
+  business   Business? @relation(fields: [businessId], references: [id], onDelete: SetNull)
+  user       User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([businessId, at])
+  @@index([userId, at])
+}

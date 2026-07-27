@@ -1,0 +1,50 @@
+{
+  "name": "botwa",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "tsx watch --env-file=.env src/server.ts",
+    "dev:worker": "tsx watch --env-file=.env src/worker.ts",
+    "build": "tsc",
+    "start": "node --env-file=.env dist/src/server.js",
+    "start:worker": "node --env-file=.env dist/src/worker.js",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "web:dev": "npm run dev --prefix web",
+    "web:build": "npm run build --prefix web",
+    "web:typecheck": "npm run typecheck --prefix web",
+    "prisma:generate": "prisma generate",
+    "audit": "npm audit --omit=dev",
+    "test:coverage": "vitest run --coverage",
+    "backup": "bash scripts/backup.sh",
+    "reset:db": "powershell -ExecutionPolicy Bypass -File scripts/reset-db.ps1",
+    "prisma:migrate": "prisma migrate deploy",
+    "prisma:seed": "node --env-file=.env --import tsx prisma/seed.ts",
+    "prisma:validate": "node --env-file=.env.example --env-file-if-exists=.env node_modules/prisma/build/index.js validate"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.864.0",
+    "@aws-sdk/s3-request-presigner": "^3.1095.0",
+    "@fastify/cookie": "^11.1.2",
+    "@fastify/cors": "^11.3.0",
+    "@fastify/websocket": "^11.3.0",
+    "@node-rs/argon2": "^2.0.2",
+    "@prisma/client": "^6.14.0",
+    "bullmq": "^5.58.2",
+    "fastify": "^5.5.0",
+    "ioredis": "^5.7.0",
+    "zod": "^4.0.17"
+  },
+  "devDependencies": {
+    "@types/node": "^22.17.1",
+    "@types/ws": "^8.18.1",
+    "prisma": "^6.14.0",
+    "tsx": "^4.20.3",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
+  }
+}
