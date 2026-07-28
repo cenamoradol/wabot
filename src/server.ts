@@ -57,5 +57,5 @@ async function shutdown(signal: string) {
 process.once("SIGINT", () => void shutdown("SIGINT"));
 process.once("SIGTERM", () => void shutdown("SIGTERM"));
 
-await app.listen({ host: "127.0.0.1", port: config.PORT });
-app.log.info(`botwa listening on 127.0.0.1:${config.PORT}`);
+await app.listen({ host: config.HOST, port: config.PORT });
+app.log.info(`botwa listening on ${config.HOST}:${config.PORT}`);
