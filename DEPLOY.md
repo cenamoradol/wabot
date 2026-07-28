@@ -51,7 +51,7 @@ GitHub repo: botwa
 1. Railway Dashboard → **New Project** → **Deploy from GitHub repo**
 2. Seleccioná tu repo `botwa`
 3. Railway detecta el `Procfile` automáticamente → te crea un service con 2 procesos (`web` + `worker`)
-4. **Variables** → pegá una por una:
+4. **Variables** → pegá una por una (Railway pasa las env vars también al build, así que las migraciones Prisma las van a usar):
 
 ```
 NODE_ENV=production
@@ -60,7 +60,7 @@ PORT=3000
 LOG_LEVEL=info
 DATABASE_URL=postgresql://...    # de Neon
 REDIS_URL=rediss://...           # de Upstash
-APP_URL=https<://botwa-api-production.up.railway.app>   # actualizar después del primer deploy
+APP_URL=https://botwa-api-production.up.railway.app   # actualizar después del primer deploy
 WEB_ORIGIN=https://botwa.vercel.app                      # actualizar después del deploy de Vercel
 
 S3_ENDPOINT=https://...
@@ -86,6 +86,8 @@ SUPERADMIN_PASSWORD=admin123
 ```
 
 5. Click **Deploy**. Primer build toma ~3-5 min.
+
+> **Nota sobre migraciones**: el `railway.toml` corre `prisma migrate deploy` como último paso del **build**. Nixpacks no incluye la carpeta `prisma/` en la imagen final del runtime (sólo el cliente generado), así que las migraciones se ejecutan durante el build cuando `prisma/schema.prisma` todavía está disponible. El `DATABASE_URL` llega al build automáticamente porque Railway expone las variables al contexto de build.
 
 ### 2.2 Generar dominio público
 
