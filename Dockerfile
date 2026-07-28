@@ -28,11 +28,10 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 
 ENV NODE_ENV=production
-ENV HOST=0.0.0.0
-ENV PORT=3000
 
 # Startup: migrar, arrancar worker en background, server en foreground.
 RUN printf '#!/bin/sh\nset -e\ncd /app\necho "[start] Running Prisma migrations..."\nnpx prisma migrate deploy --schema=./prisma/schema.prisma\necho "[start] Starting worker..."\nnode dist/src/worker.js &\necho "[start] Starting web server..."\nexec node dist/src/server.js\n' > /start.sh && chmod +x /start.sh
 
-EXPOSE 3000
+# Railway inyecta PORT (default 8080) y el server lee process.env.HOST/PORT de config.ts (default 0.0.0.0).
+EXPOSE 8080
 CMD ["/start.sh"]
