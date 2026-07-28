@@ -1,6 +1,6 @@
 [build]
 builder = "NIXPACKS"
-buildCommand = "npm ci && npm run build && npm run prisma:generate"
+buildCommand = "npm ci && npm run prisma:generate && npm run build && npx prisma migrate deploy --schema=./prisma/schema.prisma"
 
 [deploy]
 restartPolicyType = "ON_FAILURE"
