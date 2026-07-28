@@ -50,7 +50,7 @@ GitHub repo: botwa
 
 1. Railway Dashboard → **New Project** → **Deploy from GitHub repo**
 2. Seleccioná tu repo `botwa`
-3. Railway detecta el `Procfile` automáticamente → te crea un service con 2 procesos (`web` + `worker`)
+3. Railway lee el `Dockerfile` en la raíz → crea UN SOLO service que corre API + worker juntos
 4. **Variables** → pegá una por una (Railway pasa las env vars también al build, así que las migraciones Prisma las van a usar):
 
 ```
@@ -87,7 +87,9 @@ SUPERADMIN_PASSWORD=admin123
 
 5. Click **Deploy**. Primer build toma ~3-5 min.
 
-> **Nota sobre migraciones**: el `railway.toml` corre `prisma migrate deploy` como último paso del **build**. Nixpacks no incluye la carpeta `prisma/` en la imagen final del runtime (sólo el cliente generado), así que las migraciones se ejecutan durante el build cuando `prisma/schema.prisma` todavía está disponible. El `DATABASE_URL` llega al build automáticamente porque Railway expone las variables al contexto de build.
+> **Arquitectura**: un solo service, un solo container, dos procesos adentro (`web` y `worker`). El `Dockerfile` arranca ambos vía `/start.sh`. Las migraciones Prisma corren en el startup antes de iniciar los procesos. Esto evita la duplicación de env vars que se da cuando Railway crea múltiples services desde un `Procfile`.
+
+> **Si ya tenés un service `botwa-worker` separado de un deploy anterior**: borrálo desde Railway → click en el service → Settings → Delete Service. Sólo querés UN service (`botwa`).
 
 ### 2.2 Generar dominio público
 
